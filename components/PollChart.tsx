@@ -35,53 +35,59 @@ export const PollChart: React.FC<PollChartProps> = ({ options, totalVotes, type 
 
   // Monochrome Palette (Black to Light Gray)
   const getMonochromeColor = (index: number) => {
-     // Start from black/dark gray and get lighter
-     const shades = [
-        '#111827', // Gray 900
-        '#374151', // Gray 700
-        '#6b7280', // Gray 500
-        '#9ca3af', // Gray 400
-        '#d1d5db', // Gray 300
-        '#e5e7eb'  // Gray 200
-     ];
-     return shades[index % shades.length];
+    // Start from black/dark gray and get lighter
+    const shades = [
+      '#111827', // Gray 900
+      '#374151', // Gray 700
+      '#6b7280', // Gray 500
+      '#9ca3af', // Gray 400
+      '#d1d5db', // Gray 300
+      '#e5e7eb'  // Gray 200
+    ];
+    return shades[index % shades.length];
   };
 
   if (type === 'pie') {
     return (
-        <div className="h-64 w-full">
+      <div className="h-64 w-full">
         <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
+          <PieChart>
             <Pie
-                data={data}
-                cx="50%"
-                cy="50%"
-                innerRadius={60}
-                outerRadius={80}
-                paddingAngle={5}
-                dataKey="votes"
+              data={data}
+              cx="50%"
+              cy="50%"
+              innerRadius={60}
+              outerRadius={80}
+              paddingAngle={5}
+              dataKey="votes"
             >
-                {data.map((entry, index) => (
+              {data.map((entry, index) => (
                 <Cell key={`cell-${index}`} fill={getMonochromeColor(index)} stroke="none" />
-                ))}
+              ))}
             </Pie>
             <Tooltip
-                contentStyle={{
+              contentStyle={{
                 backgroundColor: '#1f2937',
                 borderRadius: '8px',
                 border: 'none',
-                color: '#f9fafb',
+                color: '#ffffff',
                 fontSize: '12px',
                 boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
-                }}
-                formatter={(value: number, name: string, props: any) => [
-                    `${value} votes (${props.payload.percentage}%)`,
-                    props.payload.text
-                ]}
+              }}
+              itemStyle={{
+                color: '#ffffff'
+              }}
+              labelStyle={{
+                color: '#ffffff'
+              }}
+              formatter={(value: number, name: string, props: any) => [
+                `${value} votes (${props.payload.percentage}%)`,
+                props.payload.text
+              ]}
             />
-            </PieChart>
+          </PieChart>
         </ResponsiveContainer>
-        </div>
+      </div>
     );
   }
 
@@ -108,18 +114,24 @@ export const PollChart: React.FC<PollChartProps> = ({ options, totalVotes, type 
               backgroundColor: '#1f2937',
               borderRadius: '8px',
               border: 'none',
-              color: '#f9fafb',
+              color: '#ffffff',
               fontSize: '12px',
               boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
             }}
+            itemStyle={{
+              color: '#ffffff'
+            }}
+            labelStyle={{
+              color: '#ffffff'
+            }}
             formatter={(value: number, name: string, props: any) => [
-                `${value} votes`,
-                `${props.payload.percentage}%`
+              `${value} votes`,
+              `${props.payload.percentage}%`
             ]}
           />
           <Bar dataKey="votes" radius={[0, 4, 4, 0]} barSize={24}>
             {data.map((entry, index) => (
-              <Cell key={`cell-${index}`} fill="#374151" /> 
+              <Cell key={`cell-${index}`} fill="#374151" />
             ))}
           </Bar>
         </BarChart>
