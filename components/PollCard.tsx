@@ -31,6 +31,23 @@ export const PollCard: React.FC<PollCardProps> = ({ poll, compact = false, onVot
     }
   }, [poll.id]); // Reset order when poll ID changes
 
+  // Fetch user's vote from server on mount
+  useEffect(() => {
+    const fetchUserVote = async () => {
+      try {
+        const vote = await pollService.getUserVote(poll.id);
+        if (vote) {
+          setVotedOptionId(vote);
+          setShowResults(true);
+        }
+      } catch (error) {
+        console.error('Error fetching user vote:', error);
+      }
+    };
+
+    fetchUserVote();
+  }, [poll.id]);
+
   // Update revote timer every second
   useEffect(() => {
     if (votedOptionId) {
@@ -49,10 +66,10 @@ export const PollCard: React.FC<PollCardProps> = ({ poll, compact = false, onVot
   // Sort options to maintain original order
   const sortedOptions = React.useMemo(() => {
     if (originalOptionOrder.length === 0) return poll.options;
-    
+
     // Create a map for quick lookup
     const optionMap = new Map(poll.options.map(opt => [opt.id, opt]));
-    
+
     // Return options in the original order, with updated vote counts
     return originalOptionOrder
       .map(id => optionMap.get(id))
@@ -69,10 +86,10 @@ export const PollCard: React.FC<PollCardProps> = ({ poll, compact = false, onVot
   const handleVote = async (optionId: string) => {
     // Allow voting if: not voted yet, or can revote (within 1 minute)
     if (isExpired) return;
-    
+
     // If already voted and can't revote, don't allow
     if (votedOptionId && !canRevote) return;
-    
+
     setIsVoting(true);
 
     console.log('Voting started:', { pollId: poll.id, optionId, isRevote: !!votedOptionId });
@@ -160,8 +177,8 @@ export const PollCard: React.FC<PollCardProps> = ({ poll, compact = false, onVot
                 const isClickable = canRevote && !isExpired;
 
                 return (
-                  <div 
-                    key={option.id} 
+                  <div
+                    key={option.id}
                     className={`relative group ${isClickable ? 'cursor-pointer' : ''}`}
                     onClick={isClickable && !isVoting ? () => handleVote(option.id) : undefined}
                   >

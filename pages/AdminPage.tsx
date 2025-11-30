@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Trash2, BarChart3, Users, TrendingUp, AlertCircle } from 'lucide-react';
+import { Trash2, BarChart3, Users, TrendingUp, AlertCircle, LogOut } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { pollService } from '../services/pollService';
 import { adminService } from '../services/adminService';
 import { Poll } from '../types';
 
 export const AdminPage: React.FC = () => {
-    const { user } = useAuth();
+    const { user, signOut } = useAuth();
     const navigate = useNavigate();
     const [polls, setPolls] = useState<Poll[]>([]);
     const [loading, setLoading] = useState(true);
@@ -51,6 +51,16 @@ export const AdminPage: React.FC = () => {
             console.error('Error fetching polls:', error);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleLogout = async () => {
+        try {
+            await signOut();
+            navigate('/');
+        } catch (error) {
+            console.error('Logout error:', error);
+            alert('Failed to log out');
         }
     };
 
@@ -157,15 +167,24 @@ export const AdminPage: React.FC = () => {
                     <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Admin Panel</h1>
                     <p className="text-gray-500 mt-1">Manage all polls and view statistics</p>
                 </div>
-                {selectedPollIds.size > 0 && (
+                <div className="flex items-center gap-3">
+                    {selectedPollIds.size > 0 && (
+                        <button
+                            onClick={handleBulkDelete}
+                            className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold transition-colors flex items-center gap-2"
+                        >
+                            <Trash2 size={18} />
+                            Delete Selected ({selectedPollIds.size})
+                        </button>
+                    )}
                     <button
-                        onClick={handleBulkDelete}
-                        className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold transition-colors flex items-center gap-2"
+                        onClick={handleLogout}
+                        className="px-6 py-3 bg-gray-200 dark:bg-gray-800 hover:bg-gray-300 dark:hover:bg-gray-700 text-gray-900 dark:text-white rounded-xl font-bold transition-colors flex items-center gap-2"
                     >
-                        <Trash2 size={18} />
-                        Delete Selected ({selectedPollIds.size})
+                        <LogOut size={18} />
+                        Log Out
                     </button>
-                )}
+                </div>
             </div>
 
             {/* Stats Grid */}

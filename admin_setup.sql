@@ -11,7 +11,7 @@ BEGIN
     WHERE id = user_id 
     AND (
       raw_user_meta_data->>'is_admin' = 'true'
-      OR email = 'your-email@gmail.com'  -- Replace with your actual email
+      OR email = 'manishml.dev@gmail.com'  -- Replace with your actual email
     )
   );
 END;
