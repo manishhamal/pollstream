@@ -135,7 +135,7 @@ export const pollService = {
       // If the user voted for the SAME option, we can just return (idempotent)
       if (previousVote === optionId) return;
 
-      throw new Error('You have already voted on this poll. Revoting is only allowed within 1 minute.');
+      throw new Error('You have already voted on this poll. Revoting is only allowed within 15 seconds.');
     }
 
     // If revoting to the same option, just update the timestamp
@@ -230,7 +230,7 @@ export const pollService = {
 
     const voteTime = new Date(voteData.timestamp).getTime();
     const now = Date.now();
-    const oneMinute = 60 * 1000; // 60 seconds in milliseconds
+    const oneMinute = 15 * 1000; // 15 seconds in milliseconds
 
     return (now - voteTime) < oneMinute;
   },
@@ -243,7 +243,7 @@ export const pollService = {
 
     const voteTime = new Date(voteData.timestamp).getTime();
     const now = Date.now();
-    const oneMinute = 60 * 1000;
+    const oneMinute = 15 * 1000;
     const timeLeft = oneMinute - (now - voteTime);
 
     return Math.max(0, Math.ceil(timeLeft / 1000)); // Return seconds remaining
