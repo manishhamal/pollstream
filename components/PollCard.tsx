@@ -20,9 +20,19 @@ export const PollCard: React.FC<PollCardProps> = ({ poll, compact = false, onVot
     poll.options.map(opt => opt.id)
   );
 
+  // Local state for optimistic updates
+  const [localOptions, setLocalOptions] = useState(poll.options);
+  const [localTotalVotes, setLocalTotalVotes] = useState(poll.totalVotes);
+
   const timeLeft = new Date(poll.endsAt).getTime() - Date.now();
   const isExpired = timeLeft <= 0;
   const canRevote = pollService.canRevote(poll.id);
+
+  // Sync local state with props when they change
+  useEffect(() => {
+    setLocalOptions(poll.options);
+    setLocalTotalVotes(poll.totalVotes);
+  }, [poll]);
 
   // Preserve original option order when poll is first loaded or when poll ID changes
   useEffect(() => {
@@ -65,20 +75,20 @@ export const PollCard: React.FC<PollCardProps> = ({ poll, compact = false, onVot
 
   // Sort options to maintain original order
   const sortedOptions = React.useMemo(() => {
-    if (originalOptionOrder.length === 0) return poll.options;
+    if (originalOptionOrder.length === 0) return localOptions;
 
     // Create a map for quick lookup
-    const optionMap = new Map(poll.options.map(opt => [opt.id, opt]));
+    const optionMap = new Map(localOptions.map(opt => [opt.id, opt]));
 
     // Return options in the original order, with updated vote counts
     return originalOptionOrder
       .map(id => optionMap.get(id))
-      .filter((opt): opt is typeof poll.options[0] => opt !== undefined)
+      .filter((opt): opt is typeof localOptions[0] => opt !== undefined)
       .concat(
         // Add any new options that weren't in the original order (shouldn't happen, but safety)
-        poll.options.filter(opt => !originalOptionOrder.includes(opt.id))
+        localOptions.filter(opt => !originalOptionOrder.includes(opt.id))
       );
-  }, [poll.options, originalOptionOrder]);
+  }, [localOptions, originalOptionOrder]);
 
   const daysLeft = Math.floor(timeLeft / (1000 * 60 * 60 * 24));
   const hoursLeft = Math.floor((timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
@@ -94,11 +104,31 @@ export const PollCard: React.FC<PollCardProps> = ({ poll, compact = false, onVot
 
     console.log('Voting started:', { pollId: poll.id, optionId, isRevote: !!votedOptionId });
 
+    // Optimistic Update
+    const isRevote = !!votedOptionId;
+    const previousOptionId = votedOptionId;
+
+    setLocalOptions(prev => prev.map(opt => {
+      if (opt.id === optionId) {
+        return { ...opt, votes: opt.votes + 1 };
+      }
+      if (isRevote && opt.id === previousOptionId) {
+        return { ...opt, votes: Math.max(0, opt.votes - 1) };
+      }
+      return opt;
+    }));
+
+    if (!isRevote) {
+      setLocalTotalVotes(prev => prev + 1);
+    }
+
+    setVotedOptionId(optionId);
+    setShowResults(true);
+
     try {
       await pollService.vote(poll.id, optionId);
       console.log('Vote successful!');
-      setVotedOptionId(optionId);
-      setShowResults(true);
+
       // Trigger parent refresh if callback provided
       if (onVote) {
         console.log('Calling onVote callback to refresh poll data');
@@ -107,13 +137,17 @@ export const PollCard: React.FC<PollCardProps> = ({ poll, compact = false, onVot
     } catch (error) {
       console.error('Vote failed:', error);
       alert('Failed to vote: ' + (error as Error).message);
+
+      // Rollback optimistic update on error
+      // (Simplified rollback: just re-sync with props or fetch fresh data)
+      if (onVote) onVote();
     } finally {
       setIsVoting(false);
     }
   };
 
 
-  const totalVotes = poll.totalVotes;
+  const totalVotes = localTotalVotes;
   const maxVotes = Math.max(...sortedOptions.map(o => o.votes), 0);
 
   const getPercentage = (votes: number) => {
