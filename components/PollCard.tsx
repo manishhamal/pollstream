@@ -90,8 +90,36 @@ export const PollCard: React.FC<PollCardProps> = ({ poll, compact = false, onVot
       )
       .subscribe();
 
+    // Polling fallback: Fetch latest data every 5 seconds to ensure sync
+    const pollInterval = setInterval(async () => {
+      try {
+        const { data: latestOptions, error } = await supabase
+          .from('options')
+          .select('*')
+          .eq('poll_id', poll.id);
+
+        if (latestOptions && !error) {
+          setLocalOptions(prev => {
+            // Merge latest votes with existing options to preserve order/structure if needed
+            // But since we just need vote counts:
+            const newOptions = prev.map(opt => {
+              const latest = latestOptions.find((o: any) => o.id === opt.id);
+              return latest ? { ...opt, votes: latest.vote_count } : opt;
+            });
+
+            const newTotal = newOptions.reduce((acc, curr) => acc + curr.votes, 0);
+            setLocalTotalVotes(newTotal);
+            return newOptions;
+          });
+        }
+      } catch (err) {
+        console.error('Polling error:', err);
+      }
+    }, 5000);
+
     return () => {
       supabase.removeChannel(channel);
+      clearInterval(pollInterval);
     };
   }, [poll.id]);
 
