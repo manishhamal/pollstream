@@ -6,6 +6,7 @@ import { HomePage } from './pages/HomePage';
 import { CreatePollPage } from './pages/CreatePollPage';
 import { ExplorePage } from './pages/ExplorePage';
 import { PollDetailsPage } from './pages/PollDetailsPage';
+import { AdminPage } from './pages/AdminPage';
 
 function App() {
   return (
@@ -17,6 +18,7 @@ function App() {
             <Route path="/explore" element={<ExplorePage />} />
             <Route path="/create" element={<CreatePollPage />} />
             <Route path="/poll/:id" element={<PollDetailsPage />} />
+            <Route path="/admin" element={<AdminPage />} />
           </Routes>
         </Layout>
       </Router>

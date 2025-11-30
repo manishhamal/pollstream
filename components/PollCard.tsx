@@ -1,45 +1,103 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { BarChart2, Clock, CheckCircle2, ArrowRight } from 'lucide-react';
+import { BarChart2, Clock, CheckCircle2, ArrowRight, RotateCcw } from 'lucide-react';
 import { Poll } from '../types';
 import { pollService } from '../services/pollService';
 
 interface PollCardProps {
   poll: Poll;
   compact?: boolean;
+  onVote?: () => void;
 }
 
-export const PollCard: React.FC<PollCardProps> = ({ poll, compact = false }) => {
+export const PollCard: React.FC<PollCardProps> = ({ poll, compact = false, onVote }) => {
   const [votedOptionId, setVotedOptionId] = useState<string | null>(pollService.hasVoted(poll.id));
   const [isVoting, setIsVoting] = useState(false);
   const [showResults, setShowResults] = useState(!!votedOptionId);
+  const [revoteTimeLeft, setRevoteTimeLeft] = useState(0);
+  // Preserve original option order to prevent UI swapping
+  const [originalOptionOrder, setOriginalOptionOrder] = useState<string[]>(
+    poll.options.map(opt => opt.id)
+  );
 
   const timeLeft = new Date(poll.endsAt).getTime() - Date.now();
   const isExpired = timeLeft <= 0;
+  const canRevote = pollService.canRevote(poll.id);
+
+  // Preserve original option order when poll is first loaded or when poll ID changes
+  useEffect(() => {
+    if (poll.options && poll.options.length > 0) {
+      setOriginalOptionOrder(poll.options.map(opt => opt.id));
+    }
+  }, [poll.id]); // Reset order when poll ID changes
+
+  // Update revote timer every second
+  useEffect(() => {
+    if (votedOptionId) {
+      const updateTimer = () => {
+        const timeRemaining = pollService.getTimeUntilRevoteExpires(poll.id);
+        setRevoteTimeLeft(timeRemaining);
+      };
+
+      updateTimer();
+      const interval = setInterval(updateTimer, 1000);
+
+      return () => clearInterval(interval);
+    }
+  }, [poll.id, votedOptionId]);
+
+  // Sort options to maintain original order
+  const sortedOptions = React.useMemo(() => {
+    if (originalOptionOrder.length === 0) return poll.options;
+    
+    // Create a map for quick lookup
+    const optionMap = new Map(poll.options.map(opt => [opt.id, opt]));
+    
+    // Return options in the original order, with updated vote counts
+    return originalOptionOrder
+      .map(id => optionMap.get(id))
+      .filter((opt): opt is typeof poll.options[0] => opt !== undefined)
+      .concat(
+        // Add any new options that weren't in the original order (shouldn't happen, but safety)
+        poll.options.filter(opt => !originalOptionOrder.includes(opt.id))
+      );
+  }, [poll.options, originalOptionOrder]);
 
   const daysLeft = Math.floor(timeLeft / (1000 * 60 * 60 * 24));
   const hoursLeft = Math.floor((timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
 
   const handleVote = async (optionId: string) => {
-    if (votedOptionId || isExpired) return;
+    // Allow voting if: not voted yet, or can revote (within 1 minute)
+    if (isExpired) return;
+    
+    // If already voted and can't revote, don't allow
+    if (votedOptionId && !canRevote) return;
+    
     setIsVoting(true);
 
-    // Simulate network delay for "real feel"
-    // await new Promise(resolve => setTimeout(resolve, 600)); // Removed artificial delay for real DB
+    console.log('Voting started:', { pollId: poll.id, optionId, isRevote: !!votedOptionId });
 
     try {
       await pollService.vote(poll.id, optionId);
+      console.log('Vote successful!');
       setVotedOptionId(optionId);
       setShowResults(true);
+      // Trigger parent refresh if callback provided
+      if (onVote) {
+        console.log('Calling onVote callback to refresh poll data');
+        await onVote();
+      }
     } catch (error) {
       console.error('Vote failed:', error);
+      alert('Failed to vote: ' + (error as Error).message);
     } finally {
       setIsVoting(false);
     }
   };
 
+
   const totalVotes = poll.totalVotes;
-  const maxVotes = Math.max(...poll.options.map(o => o.votes));
+  const maxVotes = Math.max(...sortedOptions.map(o => o.votes), 0);
 
   const getPercentage = (votes: number) => {
     if (totalVotes === 0) return 0;
@@ -79,40 +137,65 @@ export const PollCard: React.FC<PollCardProps> = ({ poll, compact = false }) => 
           </h3>
         </Link>
 
+        {/* Revote Timer Banner */}
+        {votedOptionId && canRevote && revoteTimeLeft > 0 && (
+          <div className="mb-4 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 flex items-center justify-between">
+            <div className="flex items-center gap-2 text-sm">
+              <RotateCcw size={16} className="text-blue-600 dark:text-blue-400" />
+              <span className="text-blue-700 dark:text-blue-300 font-medium">
+                You can change your vote for {revoteTimeLeft}s
+              </span>
+            </div>
+          </div>
+        )}
+
         {/* Interaction Area */}
         <div className="space-y-3">
           {showResults ? (
             <div className="space-y-4 animate-fade-in">
-              {poll.options.map((option) => {
+              {sortedOptions.map((option) => {
                 const pct = getPercentage(option.votes);
                 const isWinner = option.votes === maxVotes && totalVotes > 0;
                 const isVoted = votedOptionId === option.id;
+                const isClickable = canRevote && !isExpired;
 
                 return (
-                  <div key={option.id} className="relative group">
+                  <div 
+                    key={option.id} 
+                    className={`relative group ${isClickable ? 'cursor-pointer' : ''}`}
+                    onClick={isClickable && !isVoting ? () => handleVote(option.id) : undefined}
+                  >
                     <div className="flex justify-between text-sm mb-1">
                       <span className={`font-medium ${isWinner ? 'text-black dark:text-white' : 'text-gray-600 dark:text-gray-400'} flex items-center`}>
                         {option.text}
                         {isVoted && <CheckCircle2 size={14} className="ml-1.5 text-gray-900 dark:text-gray-100" />}
+                        {isClickable && !isVoted && (
+                          <span className="ml-2 text-xs text-blue-600 dark:text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity">
+                            Click to change
+                          </span>
+                        )}
                       </span>
                       <span className="font-bold text-gray-900 dark:text-white">{pct}%</span>
                     </div>
                     <div className="h-2.5 w-full bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden">
                       <div
                         className={`h-full rounded-full transition-all duration-1000 ease-out ${isWinner
-                            ? 'bg-black dark:bg-white'
-                            : 'bg-gray-400 dark:bg-gray-600'
+                          ? 'bg-black dark:bg-white'
+                          : 'bg-gray-400 dark:bg-gray-600'
                           }`}
                         style={{ width: `${pct}%` }}
                       ></div>
                     </div>
+                    {isClickable && (
+                      <div className="absolute inset-0 rounded-lg border-2 border-blue-400 dark:border-blue-500 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+                    )}
                   </div>
                 );
               })}
             </div>
           ) : (
             <div className="space-y-2.5">
-              {poll.options.map((option) => (
+              {sortedOptions.map((option) => (
                 <button
                   key={option.id}
                   onClick={() => handleVote(option.id)}
@@ -145,8 +228,15 @@ export const PollCard: React.FC<PollCardProps> = ({ poll, compact = false }) => 
           </button>
         )}
         {showResults && (
-          <div className="flex items-center text-xs text-gray-400">
-            <BarChart2 size={12} className="mr-1" /> Live
+          <div className="flex items-center gap-3">
+            {votedOptionId && !canRevote && (
+              <span className="text-xs text-gray-500 dark:text-gray-400">
+                Vote locked
+              </span>
+            )}
+            <div className="flex items-center text-xs text-gray-400">
+              <BarChart2 size={12} className="mr-1" /> Live
+            </div>
           </div>
         )}
       </div>

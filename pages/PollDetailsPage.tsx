@@ -11,21 +11,23 @@ export const PollDetailsPage: React.FC = () => {
   const [poll, setPoll] = useState<Poll | undefined>(undefined);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      if (id) {
-        try {
-          const data = await pollService.getPollById(id);
-          setPoll(data || undefined);
-        } catch (error) {
-          console.error('Error fetching poll:', error);
-        } finally {
-          setLoading(false);
-        }
+  const fetchPoll = async () => {
+    console.log('fetchPoll called for id:', id);
+    if (id) {
+      try {
+        const data = await pollService.getPollById(id);
+        console.log('Fetched poll data:', data);
+        setPoll(data || undefined);
+      } catch (error) {
+        console.error('Error fetching poll:', error);
+      } finally {
+        setLoading(false);
       }
-    };
+    }
+  };
 
-    fetchData();
+  useEffect(() => {
+    fetchPoll();
   }, [id]);
 
   if (loading) return <div className="text-center py-20 animate-pulse text-gray-500">Loading poll data...</div>;
@@ -51,7 +53,7 @@ export const PollDetailsPage: React.FC = () => {
       <div className="grid md:grid-cols-3 gap-8">
         {/* Main Poll Card */}
         <div className="md:col-span-2 animate-slide-up">
-          <PollCard poll={poll} />
+          <PollCard poll={poll} onVote={fetchPoll} />
         </div>
 
         {/* Sidebar Info */}
