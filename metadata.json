@@ -1,0 +1,5 @@
+{
+  "name": "PollStream",
+  "description": "A modern, real-time polling application featuring interactive data visualizations, live updates, and a sleek glassmorphism design.",
+  "requestFramePermissions": []
+}
