@@ -9,14 +9,16 @@ export const HomePage: React.FC = () => {
   const [polls, setPolls] = useState<Poll[]>([]);
 
   useEffect(() => {
-    const fetchData = () => {
-      const allPolls = pollService.getPolls();
-      setPolls(allPolls);
+    const fetchData = async () => {
+      try {
+        const allPolls = await pollService.getPolls();
+        setPolls(allPolls);
+      } catch (error) {
+        console.error('Error fetching polls:', error);
+      }
     };
 
     fetchData();
-    const unsubscribe = pollService.subscribe(fetchData);
-    return () => unsubscribe();
   }, []);
 
   // Simple stats
@@ -28,7 +30,7 @@ export const HomePage: React.FC = () => {
       <section className="relative overflow-hidden rounded-3xl glass-panel p-8 sm:p-12 text-center sm:text-left flex flex-col sm:flex-row items-center justify-between gap-8">
         <div className="max-w-xl z-10">
           <h1 className="text-4xl sm:text-5xl font-extrabold text-gray-900 dark:text-white mb-6 leading-tight tracking-tight">
-            Polling, <br/>
+            Polling, <br />
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-gray-500 to-black dark:from-gray-400 dark:to-white">
               Simplified.
             </span>
@@ -46,11 +48,11 @@ export const HomePage: React.FC = () => {
             </Link>
           </div>
         </div>
-        
+
         {/* Abstract Hero Graphic */}
         <div className="relative w-64 h-64 flex-shrink-0 hidden sm:flex items-center justify-center">
-           <div className="absolute inset-0 bg-gradient-to-tr from-gray-200 to-gray-400 dark:from-gray-800 dark:to-gray-600 rounded-full opacity-20 blur-3xl animate-pulse"></div>
-           <BarChart size={120} className="text-gray-900 dark:text-white opacity-80" strokeWidth={1} />
+          <div className="absolute inset-0 bg-gradient-to-tr from-gray-200 to-gray-400 dark:from-gray-800 dark:to-gray-600 rounded-full opacity-20 blur-3xl animate-pulse"></div>
+          <BarChart size={120} className="text-gray-900 dark:text-white opacity-80" strokeWidth={1} />
         </div>
       </section>
 
@@ -62,7 +64,7 @@ export const HomePage: React.FC = () => {
             Trending Now
           </h2>
         </div>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {polls.length > 0 ? (
             polls.slice(0, 3).map(poll => (
@@ -76,15 +78,15 @@ export const HomePage: React.FC = () => {
         </div>
       </section>
 
-       {/* All Polls Section */}
-       <section>
+      {/* All Polls Section */}
+      <section>
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Recent Activity</h2>
           <span className="text-sm font-medium bg-gray-200 dark:bg-gray-800 px-3 py-1 rounded-full text-gray-700 dark:text-gray-300">
-             {totalVotes} Votes Cast
+            {totalVotes} Votes Cast
           </span>
         </div>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {polls.slice(3).map(poll => (
             <PollCard key={poll.id} poll={poll} compact />

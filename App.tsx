@@ -1,5 +1,6 @@
 import React from 'react';
-import { HashRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { AuthProvider } from './context/AuthContext';
 import { Layout } from './components/Layout';
 import { HomePage } from './pages/HomePage';
 import { CreatePollPage } from './pages/CreatePollPage';
@@ -8,16 +9,18 @@ import { PollDetailsPage } from './pages/PollDetailsPage';
 
 function App() {
   return (
-    <HashRouter>
-      <Layout>
-        <Routes>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/explore" element={<ExplorePage />} />
-          <Route path="/create" element={<CreatePollPage />} />
-          <Route path="/poll/:id" element={<PollDetailsPage />} />
-        </Routes>
-      </Layout>
-    </HashRouter>
+    <AuthProvider>
+      <Router>
+        <Layout>
+          <Routes>
+            <Route path="/" element={<HomePage />} />
+            <Route path="/explore" element={<ExplorePage />} />
+            <Route path="/create" element={<CreatePollPage />} />
+            <Route path="/poll/:id" element={<PollDetailsPage />} />
+          </Routes>
+        </Layout>
+      </Router>
+    </AuthProvider>
   );
 }
 

@@ -11,14 +11,16 @@ export const ExplorePage: React.FC = () => {
   const [categoryFilter, setCategoryFilter] = useState('All');
 
   useEffect(() => {
-    const fetchData = () => {
-      const allPolls = pollService.getPolls();
-      setPolls(allPolls);
+    const fetchData = async () => {
+      try {
+        const allPolls = await pollService.getPolls();
+        setPolls(allPolls);
+      } catch (error) {
+        console.error('Error fetching polls:', error);
+      }
     };
 
     fetchData();
-    const unsubscribe = pollService.subscribe(fetchData);
-    return () => unsubscribe();
   }, []);
 
   useEffect(() => {
@@ -43,10 +45,10 @@ export const ExplorePage: React.FC = () => {
     <div className="space-y-8">
       <div className="glass-panel p-6 rounded-2xl flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
         <div>
-           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Explore Polls</h1>
-           <p className="text-gray-500 mt-1">Discover what the world is thinking.</p>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Explore Polls</h1>
+          <p className="text-gray-500 mt-1">Discover what the world is thinking.</p>
         </div>
-        
+
         {/* Search and Filter */}
         <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
           <div className="relative group">
@@ -59,7 +61,7 @@ export const ExplorePage: React.FC = () => {
               className="pl-10 pr-4 py-2.5 w-full sm:w-64 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-black focus:ring-1 focus:ring-black dark:focus:ring-white outline-none transition-all"
             />
           </div>
-          
+
           <div className="relative group">
             <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-black dark:group-focus-within:text-white transition-colors" size={18} />
             <select

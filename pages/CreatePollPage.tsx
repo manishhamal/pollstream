@@ -3,14 +3,17 @@ import { useNavigate } from 'react-router-dom';
 import { Plus, X, ArrowLeft, Settings } from 'lucide-react';
 import { pollService } from '../services/pollService';
 
+import { useAuth } from '../context/AuthContext';
+
 export const CreatePollPage: React.FC = () => {
   const navigate = useNavigate();
+  const { user, signInWithGoogle } = useAuth();
   const [question, setQuestion] = useState('');
   const [options, setOptions] = useState(['', '']);
   const [category, setCategory] = useState('General');
   const [duration, setDuration] = useState(24);
   const [error, setError] = useState('');
-  
+
   const handleAddOption = () => {
     if (options.length < 6) {
       setOptions([...options, '']);
@@ -31,7 +34,7 @@ export const CreatePollPage: React.FC = () => {
     setOptions(newOptions);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
@@ -46,15 +49,35 @@ export const CreatePollPage: React.FC = () => {
       return;
     }
 
-    const pollId = pollService.createPoll({
-      question,
-      options: validOptions,
-      category,
-      durationHours: duration
-    });
+    try {
+      const pollId = await pollService.createPoll({
+        question,
+        options: validOptions,
+        category,
+        durationHours: duration
+      });
 
-    navigate(`/poll/${pollId}`);
+      navigate(`/poll/${pollId}`);
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message || 'Failed to create poll');
+    }
   };
+
+  if (!user) {
+    return (
+      <div className="max-w-md mx-auto mt-20 text-center p-8 glass-panel rounded-2xl">
+        <h2 className="text-2xl font-bold mb-4">Login Required</h2>
+        <p className="text-gray-600 mb-6">You need to be logged in to create a poll.</p>
+        <button
+          onClick={signInWithGoogle}
+          className="glass-button px-8 py-3 rounded-xl font-bold w-full"
+        >
+          Sign in with Google
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -64,8 +87,8 @@ export const CreatePollPage: React.FC = () => {
 
       <div className="glass-panel rounded-2xl p-8 animate-slide-up">
         <div className="mb-8 border-b border-gray-200 dark:border-gray-700 pb-4">
-            <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white">Create a Poll</h1>
-            <p className="text-gray-500 mt-2">Ask the community and get real-time feedback.</p>
+          <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white">Create a Poll</h1>
+          <p className="text-gray-500 mt-2">Ask the community and get real-time feedback.</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -90,17 +113,17 @@ export const CreatePollPage: React.FC = () => {
             </label>
             {options.map((option, index) => (
               <div key={index} className="flex gap-3 items-center animate-fade-in">
-                 <div className="w-8 h-8 rounded-full bg-black dark:bg-white text-white dark:text-black flex items-center justify-center font-bold text-sm shrink-0">
-                    {index + 1}
-                 </div>
+                <div className="w-8 h-8 rounded-full bg-black dark:bg-white text-white dark:text-black flex items-center justify-center font-bold text-sm shrink-0">
+                  {index + 1}
+                </div>
                 <div className="relative flex-grow">
-                    <input
-                        type="text"
-                        value={option}
-                        onChange={(e) => handleOptionChange(index, e.target.value)}
-                        className="w-full p-3 pl-4 rounded-xl bg-white dark:bg-black border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white focus:ring-1 focus:ring-black dark:focus:ring-white outline-none transition-all"
-                        placeholder={`Option ${index + 1}`}
-                    />
+                  <input
+                    type="text"
+                    value={option}
+                    onChange={(e) => handleOptionChange(index, e.target.value)}
+                    className="w-full p-3 pl-4 rounded-xl bg-white dark:bg-black border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white focus:ring-1 focus:ring-black dark:focus:ring-white outline-none transition-all"
+                    placeholder={`Option ${index + 1}`}
+                  />
                 </div>
                 {options.length > 2 && (
                   <button
@@ -113,7 +136,7 @@ export const CreatePollPage: React.FC = () => {
                 )}
               </div>
             ))}
-            
+
             {options.length < 6 && (
               <button
                 type="button"
@@ -127,38 +150,38 @@ export const CreatePollPage: React.FC = () => {
 
           {/* Settings Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-             <div className="space-y-2">
-                <label className="flex items-center text-sm font-bold text-gray-700 dark:text-gray-200 uppercase tracking-wide">
-                    <Settings size={14} className="mr-2" /> Category
-                </label>
-                <select
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value)}
-                    className="w-full p-3 rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white outline-none focus:border-black dark:focus:border-white"
-                >
-                    <option value="General">General</option>
-                    <option value="Tech">Tech</option>
-                    <option value="Sports">Sports</option>
-                    <option value="Entertainment">Entertainment</option>
-                    <option value="Politics">Politics</option>
-                </select>
-             </div>
-             <div className="space-y-2">
-                <label className="flex items-center text-sm font-bold text-gray-700 dark:text-gray-200 uppercase tracking-wide">
-                    Duration
-                </label>
-                <select
-                    value={duration}
-                    onChange={(e) => setDuration(Number(e.target.value))}
-                    className="w-full p-3 rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white outline-none focus:border-black dark:focus:border-white"
-                >
-                    <option value={1}>1 Hour</option>
-                    <option value={6}>6 Hours</option>
-                    <option value={24}>24 Hours</option>
-                    <option value={72}>3 Days</option>
-                    <option value={168}>7 Days</option>
-                </select>
-             </div>
+            <div className="space-y-2">
+              <label className="flex items-center text-sm font-bold text-gray-700 dark:text-gray-200 uppercase tracking-wide">
+                <Settings size={14} className="mr-2" /> Category
+              </label>
+              <select
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                className="w-full p-3 rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white outline-none focus:border-black dark:focus:border-white"
+              >
+                <option value="General">General</option>
+                <option value="Tech">Tech</option>
+                <option value="Sports">Sports</option>
+                <option value="Entertainment">Entertainment</option>
+                <option value="Politics">Politics</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className="flex items-center text-sm font-bold text-gray-700 dark:text-gray-200 uppercase tracking-wide">
+                Duration
+              </label>
+              <select
+                value={duration}
+                onChange={(e) => setDuration(Number(e.target.value))}
+                className="w-full p-3 rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white outline-none focus:border-black dark:focus:border-white"
+              >
+                <option value={1}>1 Hour</option>
+                <option value={6}>6 Hours</option>
+                <option value={24}>24 Hours</option>
+                <option value={72}>3 Days</option>
+                <option value={168}>7 Days</option>
+              </select>
+            </div>
           </div>
 
           {error && (

@@ -16,23 +16,26 @@ export const PollCard: React.FC<PollCardProps> = ({ poll, compact = false }) => 
 
   const timeLeft = new Date(poll.endsAt).getTime() - Date.now();
   const isExpired = timeLeft <= 0;
-  
+
   const daysLeft = Math.floor(timeLeft / (1000 * 60 * 60 * 24));
   const hoursLeft = Math.floor((timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
 
   const handleVote = async (optionId: string) => {
     if (votedOptionId || isExpired) return;
     setIsVoting(true);
-    
+
     // Simulate network delay for "real feel"
-    await new Promise(resolve => setTimeout(resolve, 600));
-    
-    const success = pollService.vote(poll.id, optionId);
-    if (success) {
+    // await new Promise(resolve => setTimeout(resolve, 600)); // Removed artificial delay for real DB
+
+    try {
+      await pollService.vote(poll.id, optionId);
       setVotedOptionId(optionId);
       setShowResults(true);
+    } catch (error) {
+      console.error('Vote failed:', error);
+    } finally {
+      setIsVoting(false);
     }
-    setIsVoting(false);
   };
 
   const totalVotes = poll.totalVotes;
@@ -43,14 +46,14 @@ export const PollCard: React.FC<PollCardProps> = ({ poll, compact = false }) => 
     return Math.round((votes / totalVotes) * 100);
   };
 
-  const timeString = isExpired 
-    ? 'Closed' 
+  const timeString = isExpired
+    ? 'Closed'
     : `${daysLeft}d ${hoursLeft}h left`;
 
   return (
     <div className={`glass-panel rounded-2xl overflow-hidden transition-all duration-300 hover:shadow-lg flex flex-col ${compact ? 'h-full' : ''}`}>
       <div className="p-6 flex-grow">
-        
+
         {/* Header Metadata */}
         <div className="flex justify-between items-start mb-4">
           <div className="flex items-center space-x-2">
@@ -84,7 +87,7 @@ export const PollCard: React.FC<PollCardProps> = ({ poll, compact = false }) => 
                 const pct = getPercentage(option.votes);
                 const isWinner = option.votes === maxVotes && totalVotes > 0;
                 const isVoted = votedOptionId === option.id;
-                
+
                 return (
                   <div key={option.id} className="relative group">
                     <div className="flex justify-between text-sm mb-1">
@@ -95,12 +98,11 @@ export const PollCard: React.FC<PollCardProps> = ({ poll, compact = false }) => 
                       <span className="font-bold text-gray-900 dark:text-white">{pct}%</span>
                     </div>
                     <div className="h-2.5 w-full bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden">
-                      <div 
-                        className={`h-full rounded-full transition-all duration-1000 ease-out ${
-                          isWinner 
-                            ? 'bg-black dark:bg-white' 
+                      <div
+                        className={`h-full rounded-full transition-all duration-1000 ease-out ${isWinner
+                            ? 'bg-black dark:bg-white'
                             : 'bg-gray-400 dark:bg-gray-600'
-                        }`}
+                          }`}
                         style={{ width: `${pct}%` }}
                       ></div>
                     </div>
@@ -135,17 +137,17 @@ export const PollCard: React.FC<PollCardProps> = ({ poll, compact = false }) => 
           {totalVotes.toLocaleString()} votes
         </div>
         {!showResults && !isExpired && (
-          <button 
-            onClick={() => setShowResults(true)} 
+          <button
+            onClick={() => setShowResults(true)}
             className="text-xs font-bold text-gray-900 dark:text-white hover:underline flex items-center"
           >
             View Results <ArrowRight size={12} className="ml-1" />
           </button>
         )}
         {showResults && (
-           <div className="flex items-center text-xs text-gray-400">
-              <BarChart2 size={12} className="mr-1" /> Live
-           </div>
+          <div className="flex items-center text-xs text-gray-400">
+            <BarChart2 size={12} className="mr-1" /> Live
+          </div>
         )}
       </div>
     </div>
