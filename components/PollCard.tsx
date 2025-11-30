@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { BarChart2, Clock, CheckCircle2, ArrowRight, RotateCcw } from 'lucide-react';
 import { Poll } from '../types';
 import { pollService } from '../services/pollService';
+import { supabase } from '../services/supabase';
 
 interface PollCardProps {
   poll: Poll;
@@ -56,6 +57,42 @@ export const PollCard: React.FC<PollCardProps> = ({ poll, compact = false, onVot
     };
 
     fetchUserVote();
+  }, [poll.id]);
+
+  // Realtime subscription for vote updates
+  useEffect(() => {
+    const channel = supabase
+      .channel(`poll-${poll.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'options',
+          filter: `poll_id=eq.${poll.id}`
+        },
+        (payload) => {
+          console.log('Realtime update received:', payload);
+          const newOption = payload.new as any;
+
+          setLocalOptions(prev => {
+            const newOptions = prev.map(opt =>
+              opt.id === newOption.id ? { ...opt, votes: newOption.vote_count } : opt
+            );
+
+            // Calculate new total from the updated options list
+            const newTotal = newOptions.reduce((acc, curr) => acc + curr.votes, 0);
+            setLocalTotalVotes(newTotal);
+
+            return newOptions;
+          });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [poll.id]);
 
   // Update revote timer every second
