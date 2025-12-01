@@ -45,8 +45,8 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                   key={item.path}
                   to={item.path}
                   className={`inline-flex items-center px-1 pt-1 text-sm font-medium transition-all duration-200 ${isActive(item.path)
-                      ? 'text-black dark:text-white border-b-2 border-black dark:border-white'
-                      : 'text-gray-500 hover:text-gray-900 dark:hover:text-gray-200'
+                    ? 'text-black dark:text-white border-b-2 border-black dark:border-white'
+                    : 'text-gray-500 hover:text-gray-900 dark:hover:text-gray-200'
                     }`}
                 >
                   <span className="mr-2">{item.icon}</span>
@@ -92,8 +92,8 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                   to={item.path}
                   onClick={() => setIsMobileMenuOpen(false)}
                   className={`flex items-center px-3 py-3 rounded-md text-base font-medium ${isActive(item.path)
-                      ? 'bg-black text-white dark:bg-white dark:text-black'
-                      : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800'
+                    ? 'bg-black text-white dark:bg-white dark:text-black'
+                    : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800'
                     }`}
                 >
                   <span className="mr-3">{item.icon}</span>
@@ -116,13 +116,8 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
             <span className="font-bold text-gray-900 dark:text-white">PollStream</span>
           </div>
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            &copy; 2024 PollStream. Monochrome Edition.
+            &copy; 2025 PollStream
           </p>
-          <div className="flex space-x-4 mt-4 md:mt-0">
-            <a href="#" className="text-gray-400 hover:text-black dark:hover:text-white transition-colors">
-              <Github size={20} />
-            </a>
-          </div>
         </div>
       </footer>
     </div>

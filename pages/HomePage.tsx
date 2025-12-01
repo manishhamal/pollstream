@@ -30,13 +30,13 @@ export const HomePage: React.FC = () => {
       <section className="relative overflow-hidden rounded-3xl glass-panel p-8 sm:p-12 text-center sm:text-left flex flex-col sm:flex-row items-center justify-between gap-8">
         <div className="max-w-xl z-10">
           <h1 className="text-4xl sm:text-5xl font-extrabold text-gray-900 dark:text-white mb-6 leading-tight tracking-tight">
-            Polling, <br />
+            Ask <br />
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-gray-500 to-black dark:from-gray-400 dark:to-white">
-              Simplified.
+              The Internet
             </span>
           </h1>
           <p className="text-lg text-gray-600 dark:text-gray-300 mb-8">
-            Create polls in seconds. Visualize answers in real-time. No clutter, just data.
+            Drop a question, watch the internet respond in real-time.
           </p>
           <div className="flex flex-col sm:flex-row gap-4">
             <Link to="/create" className="glass-button px-8 py-3 rounded-xl font-bold flex items-center justify-center">

@@ -8,7 +8,7 @@ import { supabase } from '../services/supabase';
 interface PollCardProps {
   poll: Poll;
   compact?: boolean;
-  onVote?: () => void;
+  onVote?: (optionId?: string, isRevote?: boolean, previousOptionId?: string) => void | Promise<void>;
 }
 
 export const PollCard: React.FC<PollCardProps> = ({ poll, compact = false, onVote }) => {
@@ -197,7 +197,8 @@ export const PollCard: React.FC<PollCardProps> = ({ poll, compact = false, onVot
       // Trigger parent refresh if callback provided
       if (onVote) {
         console.log('Calling onVote callback to refresh poll data');
-        await onVote();
+        // Pass vote details for parent optimistic updates
+        await onVote(optionId, isRevote, previousOptionId || undefined);
       }
     } catch (error) {
       console.error('Vote failed:', error);

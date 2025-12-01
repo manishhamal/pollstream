@@ -5,16 +5,44 @@ import { Poll } from '../types';
 import { pollService } from '../services/pollService';
 import { PollCard } from '../components/PollCard';
 import { PollChart } from '../components/PollChart';
+import { supabase } from '../services/supabase';
 
 export const PollDetailsPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const [poll, setPoll] = useState<Poll | undefined>(undefined);
   const [loading, setLoading] = useState(true);
 
-  const fetchPoll = async () => {
-    console.log('fetchPoll called for id:', id);
+  const fetchPoll = async (optionId?: string, isRevote?: boolean, previousOptionId?: string) => {
+    console.log('fetchPoll called', { id, optionId, isRevote });
+
+    // Optimistic update if vote details are provided
+    if (optionId && poll) {
+      setPoll(prev => {
+        if (!prev) return prev;
+
+        const newOptions = prev.options.map(opt => {
+          if (opt.id === optionId) {
+            return { ...opt, votes: opt.votes + 1 };
+          }
+          if (isRevote && previousOptionId && opt.id === previousOptionId) {
+            return { ...opt, votes: Math.max(0, opt.votes - 1) };
+          }
+          return opt;
+        });
+
+        const newTotal = isRevote ? prev.totalVotes : prev.totalVotes + 1;
+
+        return {
+          ...prev,
+          options: newOptions,
+          totalVotes: newTotal
+        };
+      });
+    }
+
     if (id) {
       try {
+        // Fetch fresh data in background to ensure consistency
         const data = await pollService.getPollById(id);
         console.log('Fetched poll data:', data);
         setPoll(data || undefined);
@@ -29,6 +57,48 @@ export const PollDetailsPage: React.FC = () => {
   useEffect(() => {
     fetchPoll();
   }, [id]);
+
+  // Realtime subscription for analytics
+  useEffect(() => {
+    if (!poll?.id) return;
+
+    const channel = supabase
+      .channel(`poll-details-${poll.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'options',
+          filter: `poll_id=eq.${poll.id}`
+        },
+        (payload) => {
+          console.log('Analytics realtime update:', payload);
+          const newOption = payload.new as any;
+
+          setPoll(prev => {
+            if (!prev) return prev;
+
+            const newOptions = prev.options.map(opt =>
+              opt.id === newOption.id ? { ...opt, votes: newOption.vote_count } : opt
+            );
+
+            const newTotal = newOptions.reduce((acc, curr) => acc + curr.votes, 0);
+
+            return {
+              ...prev,
+              options: newOptions,
+              totalVotes: newTotal
+            };
+          });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [poll?.id]);
 
   if (loading) return <div className="text-center py-20 animate-pulse text-gray-500">Loading poll data...</div>;
 
