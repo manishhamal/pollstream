@@ -4,7 +4,7 @@ import { Poll, CreatePollData, PollOption } from '../types';
 export const pollService = {
   async getPolls(): Promise<Poll[]> {
     const { data: polls, error } = await supabase
-      .from('polls')
+      .from('polls_with_creator')
       .select(`
         *,
         options (
@@ -30,7 +30,7 @@ export const pollService = {
       endsAt: new Date(new Date(poll.created_at).getTime() + 24 * 60 * 60 * 1000).toISOString(), // Default 24h duration for now
       category: 'General', // Default category
       totalVotes: poll.options.reduce((acc: number, curr: any) => acc + curr.vote_count, 0),
-      createdBy: poll.creator_id
+      createdBy: poll.creator_email || poll.creator_id
     }));
   },
 
