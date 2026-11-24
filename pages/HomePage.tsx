@@ -1,28 +1,36 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { PlusCircle, TrendingUp, BarChart } from 'lucide-react';
+import { PlusCircle, TrendingUp, BarChart, ArrowRight, Sparkles } from 'lucide-react';
 import { Poll } from '../types';
 import { pollService } from '../services/pollService';
 import { PollCard } from '../components/PollCard';
+import { PollListCard } from '../components/PollListCard';
+
+const TRENDING_COUNT = 3;
+const NEW_COUNT = 6;
 
 export const HomePage: React.FC = () => {
-  const [polls, setPolls] = useState<Poll[]>([]);
+  const [trending, setTrending] = useState<Poll[]>([]);
+  const [fresh, setFresh] = useState<Poll[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const allPolls = await pollService.getPolls();
-        setPolls(allPolls);
-      } catch (error) {
-        console.error('Error fetching polls:', error);
-      }
-    };
-
-    fetchData();
+    let cancelled = false;
+    // Two small, bounded queries instead of downloading every poll
+    Promise.all([
+      pollService.listPolls({ sort: 'popular', pageSize: TRENDING_COUNT }),
+      pollService.listPolls({ sort: 'newest', pageSize: NEW_COUNT + TRENDING_COUNT }),
+    ])
+      .then(([top, newest]) => {
+        if (cancelled) return;
+        const topIds = new Set(top.polls.map(p => p.id));
+        setTrending(top.polls);
+        setFresh(newest.polls.filter(p => !topIds.has(p.id)).slice(0, NEW_COUNT));
+      })
+      .catch(error => console.error('Error fetching polls:', error))
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
   }, []);
-
-  // Simple stats
-  const totalVotes = polls.reduce((acc, curr) => acc + curr.totalVotes, 0);
 
   return (
     <div className="space-y-12">
@@ -56,43 +64,54 @@ export const HomePage: React.FC = () => {
         </div>
       </section>
 
-      {/* Featured Section */}
+      {/* Trending: a few interactive cards you can vote on right here */}
       <section>
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
             <TrendingUp className="mr-2" size={24} />
             Trending Now
           </h2>
+          <Link to="/explore?tab=popular" className="text-sm font-bold text-gray-700 dark:text-gray-200 hover:underline flex items-center">
+            See all <ArrowRight size={14} className="ml-1" />
+          </Link>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {polls.length > 0 ? (
-            polls.slice(0, 3).map(poll => (
-              <PollCard key={poll.id} poll={poll} compact />
+          {loading ? (
+            Array.from({ length: TRENDING_COUNT }, (_, i) => (
+              <div key={i} className="glass-panel rounded-2xl h-72 animate-pulse" aria-hidden="true" />
             ))
+          ) : trending.length > 0 ? (
+            trending.map(poll => <PollCard key={poll.id} poll={poll} compact />)
           ) : (
-            <div className="col-span-full py-12 text-center glass-panel rounded-xl text-gray-500">
-              No polls yet. Start the conversation!
+            <div className="col-span-full py-12 text-center glass-panel rounded-xl text-gray-500 space-y-3">
+              <p>No open polls right now. Start the conversation!</p>
+              <Link to="/explore?tab=ended" className="text-sm font-bold text-gray-900 dark:text-white underline">
+                Browse ended polls
+              </Link>
             </div>
           )}
         </div>
       </section>
 
-      {/* All Polls Section */}
-      <section>
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Recent Activity</h2>
-          <span className="text-sm font-medium bg-gray-200 dark:bg-gray-800 px-3 py-1 rounded-full text-gray-700 dark:text-gray-300">
-            {totalVotes} Votes Cast
-          </span>
-        </div>
+      {/* New polls: lightweight summaries */}
+      {fresh.length > 0 && (
+        <section>
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
+              <Sparkles className="mr-2" size={22} />
+              New Polls
+            </h2>
+            <Link to="/explore" className="text-sm font-bold text-gray-700 dark:text-gray-200 hover:underline flex items-center">
+              Explore all <ArrowRight size={14} className="ml-1" />
+            </Link>
+          </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {polls.slice(3).map(poll => (
-            <PollCard key={poll.id} poll={poll} compact />
-          ))}
-        </div>
-      </section>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {fresh.map(poll => <PollListCard key={poll.id} poll={poll} />)}
+          </div>
+        </section>
+      )}
     </div>
   );
 };

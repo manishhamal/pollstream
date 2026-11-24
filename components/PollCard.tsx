@@ -4,6 +4,7 @@ import { BarChart2, Clock, CheckCircle2, ArrowRight, RotateCcw } from 'lucide-re
 import { Poll } from '../types';
 import { pollService } from '../services/pollService';
 import { supabase } from '../services/supabase';
+import { formatVotes, getTimeStatus } from '../utils/format';
 
 interface PollCardProps {
   poll: Poll;
@@ -14,7 +15,10 @@ interface PollCardProps {
 export const PollCard: React.FC<PollCardProps> = ({ poll, compact = false, onVote }) => {
   const [votedOptionId, setVotedOptionId] = useState<string | null>(pollService.hasVoted(poll.id));
   const [isVoting, setIsVoting] = useState(false);
-  const [showResults, setShowResults] = useState(!!votedOptionId);
+  // Ended polls always show results; open polls show them once you've voted
+  const [showResults, setShowResults] = useState(
+    () => !!votedOptionId || new Date(poll.endsAt).getTime() <= Date.now()
+  );
   const [revoteTimeLeft, setRevoteTimeLeft] = useState(0);
   // Preserve original option order to prevent UI swapping
   const [originalOptionOrder, setOriginalOptionOrder] = useState<string[]>(
@@ -25,8 +29,7 @@ export const PollCard: React.FC<PollCardProps> = ({ poll, compact = false, onVot
   const [localOptions, setLocalOptions] = useState(poll.options);
   const [localTotalVotes, setLocalTotalVotes] = useState(poll.totalVotes);
 
-  const timeLeft = new Date(poll.endsAt).getTime() - Date.now();
-  const isExpired = timeLeft <= 0;
+  const { isClosed: isExpired, label: timeLabel } = getTimeStatus(poll.endsAt);
   const canRevote = pollService.canRevote(poll.id);
 
   // Sync local state with props when they change
@@ -59,8 +62,9 @@ export const PollCard: React.FC<PollCardProps> = ({ poll, compact = false, onVot
     fetchUserVote();
   }, [poll.id]);
 
-  // Realtime subscription for vote updates
+  // Realtime subscription for vote updates (only while the poll can still change)
   useEffect(() => {
+    if (isExpired) return;
     const channel = supabase
       .channel(`poll-${poll.id}`)
       .on(
@@ -90,53 +94,29 @@ export const PollCard: React.FC<PollCardProps> = ({ poll, compact = false, onVot
       )
       .subscribe();
 
-    // Polling fallback: Fetch latest data every 5 seconds to ensure sync
-    const pollInterval = setInterval(async () => {
-      try {
-        const { data: latestOptions, error } = await supabase
-          .from('options')
-          .select('*')
-          .eq('poll_id', poll.id);
-
-        if (latestOptions && !error) {
-          setLocalOptions(prev => {
-            // Merge latest votes with existing options to preserve order/structure if needed
-            // But since we just need vote counts:
-            const newOptions = prev.map(opt => {
-              const latest = latestOptions.find((o: any) => o.id === opt.id);
-              return latest ? { ...opt, votes: latest.vote_count } : opt;
-            });
-
-            const newTotal = newOptions.reduce((acc, curr) => acc + curr.votes, 0);
-            setLocalTotalVotes(newTotal);
-            return newOptions;
-          });
-        }
-      } catch (err) {
-        console.error('Polling error:', err);
-      }
-    }, 5000);
-
     return () => {
       supabase.removeChannel(channel);
-      clearInterval(pollInterval);
     };
-  }, [poll.id]);
+  }, [poll.id, isExpired]);
 
   // Update revote timer every second
   useEffect(() => {
-    if (votedOptionId) {
+    if (votedOptionId && !isExpired) {
+      let interval: ReturnType<typeof setInterval> | undefined;
       const updateTimer = () => {
         const timeRemaining = pollService.getTimeUntilRevoteExpires(poll.id);
         setRevoteTimeLeft(timeRemaining);
+        if (timeRemaining <= 0 && interval) clearInterval(interval); // stop ticking once locked
       };
 
       updateTimer();
-      const interval = setInterval(updateTimer, 1000);
+      if (pollService.getTimeUntilRevoteExpires(poll.id) > 0) {
+        interval = setInterval(updateTimer, 1000);
+      }
 
-      return () => clearInterval(interval);
+      return () => { if (interval) clearInterval(interval); };
     }
-  }, [poll.id, votedOptionId]);
+  }, [poll.id, votedOptionId, isExpired]);
 
   // Sort options to maintain original order
   const sortedOptions = React.useMemo(() => {
@@ -155,8 +135,6 @@ export const PollCard: React.FC<PollCardProps> = ({ poll, compact = false, onVot
       );
   }, [localOptions, originalOptionOrder]);
 
-  const daysLeft = Math.floor(timeLeft / (1000 * 60 * 60 * 24));
-  const hoursLeft = Math.floor((timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
 
   const handleVote = async (optionId: string) => {
     // Allow voting if: not voted yet, or can revote (within 1 minute)
@@ -233,10 +211,6 @@ export const PollCard: React.FC<PollCardProps> = ({ poll, compact = false, onVot
     return Math.round((votes / totalVotes) * 100);
   };
 
-  const timeString = isExpired
-    ? 'Closed'
-    : `${daysLeft}d ${hoursLeft}h left`;
-
   return (
     <div className={`glass-panel rounded-2xl overflow-hidden transition-all duration-300 hover:shadow-lg flex flex-col ${compact ? 'h-full' : ''}`}>
       <div className="p-6 flex-grow">
@@ -247,16 +221,11 @@ export const PollCard: React.FC<PollCardProps> = ({ poll, compact = false, onVot
             <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-black text-white dark:bg-white dark:text-black uppercase tracking-wider">
               {poll.category}
             </span>
-            <span className="text-xs text-gray-500 font-medium flex items-center">
+            <span className={`text-xs font-medium flex items-center ${isExpired ? 'text-gray-400' : 'text-gray-500'}`}>
               <Clock size={12} className="mr-1" />
-              {timeString}
+              {timeLabel}
             </span>
           </div>
-          {isExpired && (
-            <span className="text-xs font-bold text-gray-500 border border-gray-300 dark:border-gray-700 px-2 py-0.5 rounded">
-              ENDED
-            </span>
-          )}
         </div>
 
         {/* Question */}
@@ -346,7 +315,7 @@ export const PollCard: React.FC<PollCardProps> = ({ poll, compact = false, onVot
       {/* Footer */}
       <div className="px-6 py-4 border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/30 flex justify-between items-center">
         <div className="text-sm text-gray-500 font-medium">
-          {totalVotes.toLocaleString()} votes
+          {formatVotes(totalVotes)}
         </div>
         {!showResults && !isExpired && (
           <button
@@ -356,7 +325,10 @@ export const PollCard: React.FC<PollCardProps> = ({ poll, compact = false, onVot
             View Results <ArrowRight size={12} className="ml-1" />
           </button>
         )}
-        {showResults && (
+        {showResults && isExpired && (
+          <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Final results</span>
+        )}
+        {showResults && !isExpired && (
           <div className="flex items-center gap-3">
             {votedOptionId && !canRevote && (
               <span className="text-xs text-gray-500 dark:text-gray-400">

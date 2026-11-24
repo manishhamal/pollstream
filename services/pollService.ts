@@ -7,6 +7,26 @@ const POLL_SELECT = `
   options ( id, text, vote_count )
 `;
 
+export type PollSort = 'newest' | 'popular' | 'ending' | 'ended';
+
+export interface ListPollsParams {
+  sort: PollSort;
+  category?: string;   // 'All' or undefined = no filter
+  search?: string;
+  page?: number;       // 0-based
+  pageSize?: number;
+}
+
+export interface PollPage {
+  polls: Poll[];
+  hasMore: boolean;
+}
+
+const MAX_SEARCH_LENGTH = 100;
+
+/** Escape LIKE wildcards so user input is matched literally */
+const escapeLike = (s: string) => s.replace(/[\\%_]/g, m => `\\${m}`);
+
 const LOCAL_VOTES_KEY = 'pollstream_votes';
 const REVOTE_WINDOW_MS = 15 * 1000; // UI hint only; the server (cast_vote) enforces it
 
@@ -70,6 +90,46 @@ const currentUserId = async (): Promise<string | null> => {
 };
 
 export const pollService = {
+  /**
+   * One page of polls for Explore / Home. Filtering, search, sorting and paging
+   * all happen in the database, so the cost per request stays flat as polls grow.
+   */
+  async listPolls({ sort, category, search, page = 0, pageSize = 12 }: ListPollsParams): Promise<PollPage> {
+    const nowIso = new Date().toISOString();
+    let query = supabase.from('polls').select(POLL_SELECT);
+
+    if (sort === 'ended') {
+      query = query.lte('ends_at', nowIso).order('ends_at', { ascending: false });
+    } else {
+      query = query.gt('ends_at', nowIso);
+      if (sort === 'popular') {
+        query = query.order('total_votes', { ascending: false }).order('created_at', { ascending: false });
+      } else if (sort === 'ending') {
+        query = query.order('ends_at', { ascending: true });
+      } else {
+        query = query.order('created_at', { ascending: false });
+      }
+    }
+    query = query.order('id', { ascending: true }); // stable tie-breaker for paging
+
+    if (category && category !== 'All') query = query.eq('category', category);
+
+    const term = search?.trim().slice(0, MAX_SEARCH_LENGTH);
+    if (term) query = query.ilike('question', `%${escapeLike(term)}%`);
+
+    // Fetch one extra row to know whether another page exists
+    const from = page * pageSize;
+    const { data, error } = await query.range(from, from + pageSize);
+    if (error) throw error;
+
+    const rows = data ?? [];
+    return {
+      polls: rows.slice(0, pageSize).map(mapPoll),
+      hasMore: rows.length > pageSize
+    };
+  },
+
+  /** Every poll. Only for the admin table; public pages use listPolls(). */
   async getPolls(): Promise<Poll[]> {
     const { data, error } = await supabase
       .from('polls')
