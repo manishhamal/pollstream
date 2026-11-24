@@ -64,7 +64,8 @@ export const CreatePollPage: React.FC = () => {
     }
   };
 
-  if (!user) {
+  // Anonymous sessions (created when a visitor votes) can vote but not create polls
+  if (!user || user.is_anonymous) {
     return (
       <div className="max-w-md mx-auto mt-20 text-center p-8 glass-panel rounded-2xl">
         <h2 className="text-2xl font-bold mb-4">Login Required</h2>

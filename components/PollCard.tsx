@@ -172,6 +172,7 @@ export const PollCard: React.FC<PollCardProps> = ({ poll, compact = false, onVot
     // Optimistic Update
     const isRevote = !!votedOptionId;
     const previousOptionId = votedOptionId;
+    const snapshot = { options: localOptions, total: localTotalVotes, voted: votedOptionId, showResults };
 
     setLocalOptions(prev => prev.map(opt => {
       if (opt.id === optionId) {
@@ -191,8 +192,16 @@ export const PollCard: React.FC<PollCardProps> = ({ poll, compact = false, onVot
     setShowResults(true);
 
     try {
-      await pollService.vote(poll.id, optionId);
-      console.log('Vote successful!');
+      const tallies = await pollService.vote(poll.id, optionId);
+
+      // Replace the optimistic numbers with the server's authoritative tallies
+      if (tallies.length > 0) {
+        const byId = new Map(tallies.map(t => [t.optionId, t.votes]));
+        setLocalOptions(prev => prev.map(opt =>
+          byId.has(opt.id) ? { ...opt, votes: byId.get(opt.id)! } : opt
+        ));
+        setLocalTotalVotes(tallies.reduce((acc, t) => acc + t.votes, 0));
+      }
 
       // Trigger parent refresh if callback provided
       if (onVote) {
@@ -204,8 +213,11 @@ export const PollCard: React.FC<PollCardProps> = ({ poll, compact = false, onVot
       console.error('Vote failed:', error);
       alert('Failed to vote: ' + (error as Error).message);
 
-      // Rollback optimistic update on error
-      // (Simplified rollback: just re-sync with props or fetch fresh data)
+      // Roll back the optimistic update, then re-sync with the server
+      setLocalOptions(snapshot.options);
+      setLocalTotalVotes(snapshot.total);
+      setVotedOptionId(snapshot.voted);
+      setShowResults(snapshot.showResults);
       if (onVote) onVote();
     } finally {
       setIsVoting(false);

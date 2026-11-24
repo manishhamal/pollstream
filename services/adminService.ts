@@ -1,18 +1,14 @@
 import { supabase } from './supabase';
 
-// List of admin emails - add your email here
-const ADMIN_EMAILS = [
-    'manishml.dev@gmail.com', // Replace with your actual email
-];
-
+/**
+ * Admin status comes from app_metadata.is_admin, which only the service role
+ * (dashboard / SQL) can set. The database enforces it via public.is_admin();
+ * this check only decides what the UI shows.
+ */
 export const adminService = {
     async isAdmin(): Promise<boolean> {
-        const { data: { user } } = await supabase.auth.getUser();
-
-        if (!user) return false;
-
-        // Check if user email is in admin list
-        return ADMIN_EMAILS.includes(user.email || '');
+        const { data: { session } } = await supabase.auth.getSession();
+        return session?.user?.app_metadata?.is_admin === true;
     },
 
     async checkAdminAccess(): Promise<void> {

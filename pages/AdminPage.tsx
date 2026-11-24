@@ -98,7 +98,7 @@ export const AdminPage: React.FC = () => {
 
         try {
             await Promise.all(
-                Array.from(selectedPollIds).map(pollId => pollService.deletePoll(pollId))
+                Array.from<string>(selectedPollIds).map(pollId => pollService.deletePoll(pollId))
             );
             setPolls(polls.filter(p => !selectedPollIds.has(p.id)));
             setSelectedPollIds(new Set());

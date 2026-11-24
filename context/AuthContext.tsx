@@ -6,6 +6,10 @@ interface AuthContextType {
     user: User | null;
     session: Session | null;
     loading: boolean;
+    /** Signed in with a real account (not an anonymous voting session). */
+    isSignedIn: boolean;
+    /** UI hint only. The database enforces admin rights via public.is_admin(). */
+    isAdmin: boolean;
     signInWithGoogle: () => Promise<void>;
     signOut: () => Promise<void>;
 }
@@ -39,7 +43,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const { error } = await supabase.auth.signInWithOAuth({
             provider: 'google',
             options: {
-                redirectTo: `${window.location.origin}`
+                redirectTo: `${window.location.origin}`,
+                // Always show Google's account chooser instead of silently using the active account
+                queryParams: { prompt: 'select_account' }
             }
         });
         if (error) throw error;
@@ -50,8 +56,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (error) throw error;
     };
 
+    const isSignedIn = !!user && !user.is_anonymous;
+    const isAdmin = isSignedIn && user?.app_metadata?.is_admin === true;
+
     return (
-        <AuthContext.Provider value={{ user, session, loading, signInWithGoogle, signOut }}>
+        <AuthContext.Provider value={{ user, session, loading, isSignedIn, isAdmin, signInWithGoogle, signOut }}>
             {!loading && children}
         </AuthContext.Provider>
     );
